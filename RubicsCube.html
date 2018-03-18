@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Messaround town</title>
+	</head>
+	<body>
+		<canvas id="canvas" width = "600" height = "600">Your browser does not support the type content that were to be displayed here.</canvas>
+		<h1>Choose where to shift the cube with the arrowkeys. Shift using 'n' and the 'm' key respectively.</h1>
+		<button id="fix" style="position:absolute;left:15%">Just get it right already</button>
+		<br>
+		<button id="unfix" style="position:absolute;left:15%">Rerandomise it already</button>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+	<script>
+
+// setting canvas focus and event listeners for key input handling 
+var lastDownTarget, canvas;
+window.onload = function(e){
+	canvas = document.getElementById("tcanvas");
+
+	document.addEventListener('mousedown',function(event){
+		lastDownTarget = event.target;
+	},false);
+
+	document.addEventListener('keydown',function(event){
+		if(lastDownTarget == canvas){
+			keypressed(event);
+		}
+	},false);
+	init();
+}
+
+$("#unfix").click(function(){
+	initiliseCube();
+});
+
+$("#fix").click(function(){
+	// making a vector with nine of each number in [1,6]
+	var values = [];
+	for(var i = 1;i<=6;i++){
+		for(var n = 0; n<9;n++){
+			values.push(i);
+		}
+	}
+
+	var count = 0;
+
+// pushing random values in [1,6] into the fron,back,up,down faces of the cube
+	for(var r = 0;r<12;r++){
+		for(var c = 0;c<3;c++){
+			cube_fbud[r][c] = values[count];
+			count++;
+		}
+	}
+
+// pushing random values in [1,6] into the left face of the cube
+	for(var r = 0;r<3;r++){
+		for(var c = 0;c<3;c++){
+			cube_l[r][c] = values[count];
+			count++;
+		}
+	}
+
+// pushing random values in [1,6] into the right face of the cube
+	for(var r = 0;r<3;r++){
+		for(var c = 0;c<3;c++){
+			cube_r[r][c] = values[count];
+			count++;
+		}
+	}
+
+	row_focus = 0;
+	column_focus = 0;
+
+});
+
+// global variables are declared
+// the canvas and its 2d-context reference is declared
+var canvas;
+var ctxt;
+
+// constants for the rendering of the blocks
+var width;
+var height;
+var nbr_rows = 12;
+var nbr_cols = 12;
+var show_background = 3;
+var row_focus;
+var column_focus;
+
+// the hashing of number to color value 
+var colors;
+// the matrix that will store information of the fron-back-up-down faces of the cube
+var cube_fbud;
+// the matrix that will store information of the left respectively right face of the cube
+var cube_l;
+var cube_r;
+
+// the main loops timer ID will be stored so that the execution of the drawing loop can be stopped when needed
+var timerId; 
+
+var draw_interval = 100;
+function init(){
+	canvas = document.getElementById("canvas")
+	ctxt = canvas.getContext("2d");
+
+	width = canvas.width;
+	height = canvas.height;
+
+	colors = {};
+	cube_fbud = [];
+	cube_l = [];
+	cube_r = [];
+
+	row_focus = 0;
+	column_focus = 0;
+
+	fixColors();
+	initiliseCube();
+
+	timerId = window.setInterval(function(){
+		drawCube();
+	},draw_interval);
+
+}
+
+// making a number match a specifik color on the cube
+function fixColors(){
+	colors[1] = "blue";
+	colors[2] = "green";
+	colors[3] = "yellow";
+	colors[4] = "orange";
+	colors[5] = "red";
+	colors[6] = "white";
+}
+
+// setting a value of a color into each position of the matrixes that represents the cube
+function initiliseCube(){
+
+// making a vector with nine of each number in [1,6]
+	var values = [];
+	for(var i = 1;i<=6;i++){
+		for(var n = 0; n<9;n++){
+			values.push(i);
+		}
+	}
+
+	var count = 0;
+
+// pushing random values in [1,6] into the fron,back,up,down faces of the cube
+	for(var r = 0;r<12;r++){
+		cube_fbud.push([]);
+		for(var c = 0;c<3;c++){
+			cube_fbud[r].push(values[count]);
+			count++;
+		}
+	}
+
+// pushing random values in [1,6] into the left face of the cube
+	for(var r = 0;r<3;r++){
+		cube_l.push([]);
+		for(var c = 0;c<3;c++){
+			cube_l[r].push(values[count]);
+			count++;
+		}
+	}
+
+// pushing random values in [1,6] into the right face of the cube
+	for(var r = 0;r<3;r++){
+		cube_r.push([]);
+		for(var c = 0;c<3;c++){
+			cube_r[r].push(values[count]);
+			count++;
+		}
+	}
+
+	var number_of_turns = 1000;
+	for(var i = 0; i<number_of_turns; i++){
+	 	switch(Math.floor(Math.random()*4)){
+	 		case 0:
+	 			row_focus = (row_focus+1)%3;
+	 		case 1:
+	 			column_focus = (column_focus+1)%3;
+	 		case 2:
+	 			columnShift();
+	 		case 3:
+	 			rowShift();
+	 	}
+	}
+
+	row_focus = 0;
+	column_focus = 0;
+
+}
+
+// contants
+var nbr_rows = 12;
+var nbr_cols = 12;
+var show_background = 7;
+
+// preforms the drawing of the rubics cube. Values from the matrixes are read and checked for accurate coloring.
+function drawCube(){
+	
+	ctxt.globalAlpha = 1.0;
+	ctxt.fillStyle = "white";
+	ctxt.fillRect(0,0,width,height);
+
+	var startcol = 4;
+	var startrow = 0;
+
+	var blockheight = height/nbr_rows;
+	var blockwidth = width/nbr_cols; 
+
+
+	// draws the background of the body of the cube
+	ctxt.fillStyle = "black";
+	ctxt.fillRect((startcol)*blockwidth-show_background/2,0,blockwidth*3,blockheight*12);
+	ctxt.fillRect(blockwidth-show_background/2,3*blockheight-show_background/2,blockwidth*9,blockheight*3);
+
+	// drawing the column and row selection stripes
+	ctxt.fillStyle = "white";
+	// drawing the column selection stripe
+	ctxt.fillRect((startcol+column_focus)*blockwidth-show_background/2,(startrow)*blockheight,blockwidth,height);
+
+	// drawing the row selection stripe
+	ctxt.fillRect((startcol)*blockwidth-show_background/2,(startrow+row_focus)*blockheight-show_background/2,blockwidth*3,height/nbr_rows);
+	if(0<=row_focus && row_focus<3){
+		ctxt.fillRect((startcol)*blockwidth-show_background/2,(startrow+8-row_focus)*blockheight-show_background/2,blockwidth*3,height/nbr_rows);
+	}else if(3<=row_focus && row_focus<6){
+		ctxt.fillRect((startcol)*blockwidth-show_background/2,(startrow+14-row_focus)*blockheight-show_background/2,blockwidth*3,height/nbr_rows);
+	}else if(6<=row_focus && row_focus<9){
+		ctxt.fillRect((startcol)*blockwidth-show_background/2,(startrow+8-row_focus)*blockheight-show_background/2,blockwidth*3,height/nbr_rows);
+	}else if(9<=row_focus && row_focus<12){
+		ctxt.fillRect((startcol)*blockwidth-show_background/2,(startrow+11-row_focus)*blockheight-show_background/2,blockwidth*3,height/nbr_rows);
+	}
+	// for the left face
+	if(0<=row_focus && row_focus<3){
+		ctxt.fillRect((1+row_focus)*blockwidth-show_background/2,(3)*blockheight-show_background/2,blockwidth,blockheight*3);
+	}else if(3<=row_focus && row_focus<6){
+		ctxt.fillRect((1)*blockwidth-show_background/2,(row_focus)*blockheight-show_background/2,blockwidth*3,blockheight);
+	}else if(6<=row_focus && row_focus<9){
+		ctxt.fillRect((6+3-row_focus)*blockwidth-show_background/2,(3)*blockheight-show_background/2,blockwidth,blockheight*3);
+	}else if(9<=row_focus && row_focus<12){
+		ctxt.fillRect((1)*blockwidth-show_background/2,(11+3-row_focus)*blockheight-show_background/2,blockwidth*3,blockheight);
+	}
+	// for the right face
+	if(0<=row_focus && row_focus<3){
+		ctxt.fillRect((6+3-row_focus)*blockwidth-show_background/2,(3)*blockheight-show_background/2,blockwidth,blockheight*3);
+	}else if(3<=row_focus && row_focus<6){
+		ctxt.fillRect((7)*blockwidth-show_background/2,(row_focus)*blockheight-show_background/2,blockwidth*3,blockheight);
+	}else if(6<=row_focus && row_focus<9){
+		ctxt.fillRect((1+row_focus)*blockwidth-show_background/2,(3)*blockheight-show_background/2,blockwidth,blockheight*3);
+	}else if(9<=row_focus && row_focus<12){
+		ctxt.fillRect((7)*blockwidth-show_background/2,(11+3-row_focus)*blockheight-show_background/2,blockwidth*3,blockheight);
+	}
+
+	// draws the front,back,up,down faces of the cube
+	for(var r=0;r<nbr_rows;r++){
+		for(var c=0;c<3;c++){
+			roundRect(ctxt,(c+startcol)*blockwidth,r*blockheight,blockwidth-show_background,blockheight-show_background,colors[cube_fbud[r][c]]);
+		}
+	}
+
+	// draws the left face of the cube
+	startcol = 1;
+	startrow = 3;
+	for(var r=0;r<3;r++){
+		for(var c=0;c<3;c++){
+			roundRect(ctxt,(c+startcol)*blockwidth,(r+startrow)*blockheight,blockwidth-show_background,blockheight-show_background,colors[cube_l[r][c]]);
+		}
+	}
+
+	// draws the right face of the cube
+	startcol = 7;
+	startrow = 3;
+	for(var r=0;r<3;r++){
+		for(var c=0;c<3;c++){
+			roundRect(ctxt,(c+startcol)*blockwidth,(r+startrow)*blockheight,blockwidth-show_background,blockheight-show_background,colors[cube_r[r][c]]);
+		}
+	}
+}
+
+// shifts the values on the selected column
+// turns the left and right side respectively
+function columnShift(){
+	var columnCopy = [];
+	for(var i = 0;i<12;i++){
+		columnCopy.push(cube_fbud[i][column_focus]);
+	}
+	for(var i = 0;i<12;i++){
+		cube_fbud[(3+i)%12][column_focus] = columnCopy[i];
+	}
+
+	if(column_focus==0){
+		rotateRightSide();
+	} else if(column_focus == 2){
+		rotateLeftSide();
+	}
+}
+
+// rotating the right side, used in the function columnShift
+function rotateRightSide(){
+	var shifter = [];
+	for(var i = 0;i<3;i++){
+		shifter.push(cube_l[0][i]);
+	}
+	for(var i = 1;i<3;i++){
+		shifter.push(cube_l[i][2]);
+	}
+	for(var i = 1;i>=0;i--){
+		shifter.push(cube_l[2][i]);
+	}
+	shifter.push(cube_l[1][0]);
+
+	var n = 0;
+	for(var i = 0;i<3;i++){
+		cube_l[0][i] = shifter[(8+n-2)%8];
+		n++;
+	}
+	for(var i = 1;i<3;i++){
+		cube_l[i][2] = shifter[(8+n-2)%8];
+		n++;
+	}
+	for(var i = 1;i>=0;i--){
+		cube_l[2][i] = shifter[(8+n-2)%8];
+		n++;
+	}
+	cube_l[1][0] = shifter[(8+n-2)%8];
+}
+
+// rotating the left side, used in the function columnShift
+function rotateLeftSide(){
+	var shifter = [];
+	for(var i = 0;i<3;i++){
+		shifter.push(cube_r[0][i]);
+	}
+	for(var i = 1;i<3;i++){
+		shifter.push(cube_r[i][2]);
+	}
+	for(var i = 1;i>=0;i--){
+		shifter.push(cube_r[2][i]);
+	}
+	shifter.push(cube_r[1][0]);
+
+	var n = 0;
+	for(var i = 0;i<3;i++){
+		cube_r[0][i] = shifter[(n+2)%8];
+		n++;
+	}
+	for(var i = 1;i<3;i++){
+		cube_r[i][2] = shifter[(n+2)%8];
+		n++;
+	}
+	for(var i = 1;i>=0;i--){
+		cube_r[2][i] = shifter[(n+2)%8];
+		n++;
+	}
+	cube_r[1][0] = shifter[(n+2)%8];
+}
+
+function rowShift(){
+	var shifter = [];
+	if(0<=row_focus && row_focus<3){
+		for(var i = 0;i<3;i++){
+			shifter.push(cube_fbud[row_focus][i]);
+		}
+		for(var i = 0;i<3;i++){
+			shifter.push(cube_r[i][2-(row_focus)]);
+		}
+		for(var i = 0;i<3;i++){
+			shifter.push(cube_fbud[8-row_focus][i]);
+		}
+		for(var i = 0;i<3;i++){
+			shifter.push(cube_l[i][row_focus]);
+		}
+		var n = 0;
+		for(var i = 0;i<3;i++){
+			cube_fbud[row_focus][2-i] = shifter[(9+n)%12];
+			n++;
+		}
+		for(var i = 0;i<3;i++){
+			cube_r[i][2-(row_focus)] = shifter[(9+n)%12];
+			n++;
+		}
+		for(var i = 0;i<3;i++){
+			cube_fbud[8-row_focus][2-i] = shifter[(9+n)%12];
+			n++;
+		}
+		for(var i = 0;i<3;i++){
+			cube_l[i][row_focus] = shifter[(9+n)%12];
+			n++;
+		}
+		if(row_focus == 0){
+			rotateBackSide();
+		}
+		if(row_focus == 2){
+			rotateFrontSide();
+		}
+
+	}else if(3<=row_focus && row_focus<6){
+		var shifter = [];
+		for(var i = 0;i<3;i++){
+			shifter.push(cube_fbud[row_focus][i]);
+		}
+		for(var i = 0;i<3;i++){
+			shifter.push(cube_r[row_focus%3][i]);
+		}
+		for(var i = 0;i<3;i++){
+			shifter.push(cube_fbud[11-(row_focus%3)][i]);
+		}
+		for(var i = 0;i<3;i++){
+			shifter.push(cube_l[row_focus%3][i]);
+		}
+		n = 0;
+		for(var i = 0;i<3;i++){
+			cube_fbud[row_focus][i] = shifter[(n+9)%12];
+			n++;
+		}
+		for(var i = 0;i<3;i++){
+			cube_r[row_focus%3][i] = shifter[(n+9)%12];
+			n++;
+		}
+		for(var i = 2;i>=0;i--){
+			cube_fbud[11-(row_focus%3)][i] = shifter[(n+9)%12];
+			n++;
+		}
+		for(var i = 2;i>=0;i--){
+			cube_l[row_focus%3][i] = shifter[(n+9)%12];
+			n++;
+		}
+
+		if(row_focus == 3){
+			rotateUpSide();
+		}else if(row_focus == 5){
+			rotateDownSide();
+		}
+
+	}else if(6<=row_focus && row_focus<9){
+
+	}else if(9<=row_focus && row_focus<12){
+
+	}
+}
+
+// rotating the down side, used in the function rowShift;
+function rotateDownSide(){
+	var shifter = [];
+	for(var i = 0;i<3;i++){
+		shifter.push(cube_fbud[6][i]);
+	}
+	for(var i = 1;i<3;i++){
+		shifter.push(cube_fbud[6+i][2]);
+	}
+	for(var i = 1;i>=0;i--){
+		shifter.push(cube_fbud[8][i]);
+	}
+	shifter.push(cube_fbud[7][0]);
+
+	var n = 0;
+	for(var i = 0;i<3;i++){
+		cube_fbud[6][i] = shifter[(n+6)%8];
+		n++;
+	}
+	for(var i = 1;i<3;i++){
+		cube_fbud[6+i][2] = shifter[(n+6)%8];
+		n++;
+	}
+	for(var i = 1;i>=0;i--){
+		cube_fbud[8][i] = shifter[(n+6)%8];
+		n++;
+	}
+	cube_fbud[7][0] = shifter[(n+6)%8];
+}
+
+
+// rotating the up side, used in the function rowShift;
+function rotateUpSide(){
+	var shifter = [];
+	console.log("Hje")
+	for(var i = 0;i<3;i++){
+		shifter.push(cube_fbud[0][i]);
+	}
+	for(var i = 1;i<3;i++){
+		shifter.push(cube_fbud[i][2]);
+	}
+	for(var i = 1;i>=0;i--){
+		shifter.push(cube_fbud[2][i]);
+	}
+	shifter.push(cube_fbud[1][0]);
+
+	var n = 0;
+	for(var i = 0;i<3;i++){
+		cube_fbud[0][i] = shifter[(n+2)%8];
+		n++;
+	}
+	for(var i = 1;i<3;i++){
+		cube_fbud[i][2] = shifter[(n+2)%8];
+		n++;
+	}
+	for(var i = 1;i>=0;i--){
+		cube_fbud[2][i] = shifter[(n+2)%8];
+		n++;
+	}
+	cube_fbud[1][0] = shifter[(n+2)%8];
+}
+
+// rotating the front side, used in the function columnShift
+function rotateFrontSide(){
+	var shifter = [];
+	for(var i = 0;i<3;i++){
+		shifter.push(cube_fbud[3][i]);
+	}
+	for(var i = 1;i<3;i++){
+		shifter.push(cube_fbud[3+i][2]);
+	}
+	for(var i = 1;i>=0;i--){
+		shifter.push(cube_fbud[5][i]);
+	}
+	shifter.push(cube_fbud[4][0]);
+
+	var n = 0;
+	for(var i = 0;i<3;i++){
+		cube_fbud[3][i] = shifter[(6 + n)%8];
+		n++;
+	}
+	for(var i = 1;i<3;i++){
+		cube_fbud[3+i][2] = shifter[(n+6)%8];
+		n++;
+	}
+	for(var i = 1;i>=0;i--){
+		cube_fbud[5][i] = shifter[(n+6)%8];
+		n++;
+	}
+	cube_fbud[4][0] = shifter[(n+6)%8];
+}
+
+// rotating the back side, used in the function rowShift
+function rotateBackSide(){
+	var shifter = [];
+	for(var i = 0;i<3;i++){
+		shifter.push(cube_fbud[9][i]);
+	}
+	for(var i = 1;i<3;i++){
+		shifter.push(cube_fbud[9+i][2]);
+	}
+	for(var i = 1;i>=0;i--){
+		shifter.push(cube_fbud[11][i]);
+	}
+	shifter.push(cube_fbud[10][0]);
+
+	var n = 0;
+	for(var i = 0;i<3;i++){
+		cube_fbud[9][i] = shifter[(n+2)%8];
+		n++;
+	}
+	for(var i = 1;i<3;i++){
+		cube_fbud[9+i][2] = shifter[(n+2)%8];
+		n++;
+	}
+	for(var i = 1;i>=0;i--){
+		cube_fbud[11][i] = shifter[(n+2)%8];
+		n++;
+	}
+	cube_fbud[10][0] = shifter[(n+2)%8];
+}
+
+
+// drawing a rounded rectangle
+function roundRect(ctx, x, y, width, height, fillstyle, radius) {
+	ctx.fillStyle = fillstyle;
+  if (typeof radius === 'undefined') {
+    radius = 5;
+  }
+  if (typeof radius === 'number') {
+    radius = {tl: radius, tr: radius, br: radius, bl: radius};
+  } else {
+    var defaultRadius = {tl: 0, tr: 0, br: 0, bl: 0};
+    for (var side in defaultRadius) {
+      radius[side] = radius[side] || defaultRadius[side];
+    }
+  }
+  ctx.beginPath();
+  ctx.moveTo(x + radius.tl, y);
+  ctx.lineTo(x + width - radius.tr, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
+  ctx.lineTo(x + width, y + height - radius.br);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
+  ctx.lineTo(x + radius.bl, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
+  ctx.lineTo(x, y + radius.tl);
+  ctx.quadraticCurveTo(x, y, x + radius.tl, y);
+  ctx.closePath();
+  ctx.fill();
+}
+
+
+// event triggered key handling function 
+function keypressed(event){
+
+	console.log(event.keyCode);
+  // Use WASD or arrow-keys 
+  switch(event.keyCode)
+  {
+  case 83:
+  case 40:
+  	row_focus = (row_focus+1)%12;
+    break;
+  case 87:
+  case 38:
+    row_focus = (12+row_focus-1)%12;
+    break;
+  case 77:
+  	rowShift();
+  	break;
+  case 78:
+  	columnShift();
+  	break;
+  case 65:
+  case 37:
+    column_focus = (3+column_focus-1)%3;
+    break;
+  case 68:
+  case 39:
+    column_focus = (column_focus+1)%3;
+    break;
+  }
+}
+	</script>
+	</body>
+</html>
