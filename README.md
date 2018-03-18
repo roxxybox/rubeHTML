@@ -1,2 +1,2 @@
-# rubeHTML
-The rubics cube in HTML
+# Rube HTML
+The rubics cube in HTML!
